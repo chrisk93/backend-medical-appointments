@@ -109,7 +109,9 @@ class GlobalExceptionHandlerTest {
 		mockMvc.perform(get("/test/param").param("number", "abc"))
 				.andExpect(status().isBadRequest())
 				.andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
-				.andExpect(jsonPath("$.status").value(400));
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("Invalid value for parameter 'number'."))
+				.andExpect(content().string(not(containsString("abc"))));
 	}
 
 	@Test

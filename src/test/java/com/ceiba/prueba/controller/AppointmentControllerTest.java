@@ -156,7 +156,9 @@ class AppointmentControllerTest {
 	@Test
 	void cancel_nonNumericId_returns400() throws Exception {
 		mockMvc.perform(post(APPOINTMENTS_URL + "/abc/cancellation"))
-				.andExpect(status().isBadRequest());
+				.andExpect(status().isBadRequest())
+				// "instance" holds the requested path, so only the detail is checked.
+				.andExpect(jsonPath("$.detail").value("Invalid value for parameter 'id'."));
 
 		verifyNoInteractions(appointmentService);
 	}

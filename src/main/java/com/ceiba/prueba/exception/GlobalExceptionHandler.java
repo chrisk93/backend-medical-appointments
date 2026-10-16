@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -84,6 +85,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 				.toList();
 		problem.setProperty(ERRORS_PROPERTY, errors);
 		return handleExceptionInternal(ex, problem, headers, status, request);
+	}
+
+	/** Path variables and query parameters that cannot be converted; the rejected value is not echoed back. */
+	@Override
+	protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
+			HttpStatusCode status, WebRequest request) {
+		String detail = ex.getPropertyName() != null
+				? "Invalid value for parameter '" + ex.getPropertyName() + "'."
+				: INVALID_VALUE_MESSAGE;
+		return handleExceptionInternal(ex, ProblemDetail.forStatusAndDetail(status, detail), headers, status,
+				request);
 	}
 
 	private static Map<String, String> fieldError(String field, String message) {

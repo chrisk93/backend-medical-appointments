@@ -1,6 +1,7 @@
 package com.ceiba.prueba.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -188,7 +189,9 @@ class DoctorControllerTest {
 				.param("startDate", "26/10/2026")
 				.param("endDate", "2026-10-26"))
 				.andExpect(status().isBadRequest())
-				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.detail").value("Invalid value for parameter 'startDate'."))
+				.andExpect(content().string(not(containsString("26/10/2026"))));
 
 		verifyNoInteractions(availabilityService);
 	}
