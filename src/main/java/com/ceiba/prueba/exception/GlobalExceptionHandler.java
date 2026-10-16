@@ -32,6 +32,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static final String ERRORS_PROPERTY = "errors";
 
+	private static final String INVALID_VALUE_MESSAGE = "Invalid value.";
+
 	@ExceptionHandler(ResourceNotFoundException.class)
 	public ProblemDetail handleResourceNotFound(ResourceNotFoundException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -76,14 +78,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
 		ProblemDetail problem = ex.getBody();
 		List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
-				.map(error -> fieldError(error.getField(), error.getDefaultMessage()))
+				// A binding failure (e.g. "FOO" for an enum) carries internal type names and the rejected value.
+				.map(error -> fieldError(error.getField(),
+						error.isBindingFailure() ? INVALID_VALUE_MESSAGE : error.getDefaultMessage()))
 				.toList();
 		problem.setProperty(ERRORS_PROPERTY, errors);
 		return handleExceptionInternal(ex, problem, headers, status, request);
 	}
 
 	private static Map<String, String> fieldError(String field, String message) {
-		return Map.of("field", field, "message", Objects.requireNonNullElse(message, "Invalid value."));
+		return Map.of("field", field, "message", Objects.requireNonNullElse(message, INVALID_VALUE_MESSAGE));
 	}
 
 }
