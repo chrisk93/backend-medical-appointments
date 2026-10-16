@@ -4,13 +4,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.ceiba.prueba.domain.model.Appointment;
 import com.ceiba.prueba.domain.model.AppointmentStatus;
 
-public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+public interface AppointmentRepository
+		extends JpaRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
 
 	/** RN-02: does the doctor already have an appointment in this slot? */
 	boolean existsByDoctorIdAndDateTimeAndStatus(Long doctorId, LocalDateTime dateTime, AppointmentStatus status);
