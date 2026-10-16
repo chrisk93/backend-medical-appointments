@@ -297,9 +297,6 @@ Arquitectura **por capas** con principios **SOLID**:
 ```
 .
 ├── docs/
-│   ├── specs/SPEC.md              # Especificación (requerimientos y reglas)
-│   ├── design/DESIGN.md           # Diseño (arquitectura, modelo, API, testing)
-│   ├── tasks/TASKS.md             # Plan de implementación (25 tareas)
 ├── src/main/java/com/ceiba/prueba/
 │   ├── PruebaApplication.java
 │   ├── config/                    # ClockConfig
@@ -367,11 +364,3 @@ Autenticación/autorización está **fuera de alcance** según la especificació
 | — | No se consideran festivos (excluidos del alcance). |
 
 ---
-
-## Documentación
-
-| Documento | Contenido |
-|---|---|
-| [`docs/specs/SPEC.md`](docs/specs/SPEC.md) | Requerimientos funcionales, reglas de negocio y requerimientos técnicos. |
-| [`docs/design/DESIGN.md`](docs/design/DESIGN.md) | Arquitectura, modelo de datos, API, manejo de errores, seguridad y estrategia de pruebas. |
-| [`docs/tasks/TASKS.md`](docs/tasks/TASKS.md) | Las 25 tareas de implementación con criterios de aceptación y evidencia. |
