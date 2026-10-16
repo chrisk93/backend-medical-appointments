@@ -49,6 +49,21 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void errorResponse_doesNotIncludeInstance() throws Exception {
+		mockMvc.perform(get("/test/not-found"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.instance").doesNotExist());
+	}
+
+	@Test
+	void validationErrorResponse_doesNotIncludeInstance() throws Exception {
+		mockMvc.perform(post("/test/body").contentType(MediaType.APPLICATION_JSON).content("{\"name\": \" \"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.instance").doesNotExist())
+				.andExpect(jsonPath("$.errors[0].field").value("name"));
+	}
+
+	@Test
 	void conflict_returns409WithMessage() throws Exception {
 		mockMvc.perform(get("/test/conflict"))
 				.andExpect(status().isConflict())
