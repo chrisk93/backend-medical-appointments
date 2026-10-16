@@ -2,8 +2,6 @@
 
 API REST para registrar médicos y pacientes, consultar disponibilidad, reservar y cancelar citas médicas aplicando reglas de horario, no duplicidad y penalización por cancelación tardía.
 
-Proyecto construido con **Spec-Driven Development**: la especificación, el diseño y el plan de tareas están en [`docs/`](docs/) y el código se implementó tarea por tarea a partir de ellos.
-
 ---
 
 ## Tabla de contenido
@@ -84,12 +82,15 @@ Detener con `Ctrl + C`.
 ## Pruebas y cobertura
 
 ```bash
+./mvnw test -Dtest=NombreDeLaClase#nombreDelMetodo
+```
+
+```bash
 ./mvnw clean test      # solo pruebas
 ./mvnw clean verify    # pruebas + reporte + verificación de cobertura mínima
 ```
 
 - **239 pruebas** (unitarias, de controlador, de persistencia y de integración).
-- Cobertura actual: **100 % de líneas** y **98,6 % de ramas**.
 - El build **falla** si la cobertura de líneas baja de **80 %** global o de **90 %** en `service.impl` y `domain.policy`.
 - Reporte HTML: `target/site/jacoco/index.html`.
 
@@ -299,8 +300,6 @@ Arquitectura **por capas** con principios **SOLID**:
 │   ├── specs/SPEC.md              # Especificación (requerimientos y reglas)
 │   ├── design/DESIGN.md           # Diseño (arquitectura, modelo, API, testing)
 │   ├── tasks/TASKS.md             # Plan de implementación (25 tareas)
-│   └── GUIA_IMPLEMENTACION.md     # Explicación detallada de la implementación
-├── HELP.md                        # Introducción al proyecto para juniors en backend
 ├── src/main/java/com/ceiba/prueba/
 │   ├── PruebaApplication.java
 │   ├── config/                    # ClockConfig
