@@ -11,6 +11,7 @@ import com.ceiba.prueba.domain.model.Appointment;
 import com.ceiba.prueba.domain.model.AppointmentStatus;
 import com.ceiba.prueba.domain.model.Doctor;
 import com.ceiba.prueba.domain.model.Patient;
+import com.ceiba.prueba.domain.model.Penalty;
 import com.ceiba.prueba.domain.policy.PenaltyPolicy;
 import com.ceiba.prueba.domain.policy.WorkingHoursPolicy;
 import com.ceiba.prueba.dto.request.AppointmentRequest;
@@ -76,6 +77,21 @@ public class AppointmentServiceImpl implements AppointmentService {
 
 		Appointment saved = appointmentRepository.save(new Appointment(patient, doctor, dateTime));
 		return appointmentMapper.toResponse(saved);
+	}
+
+	@Override
+	@Transactional
+	public AppointmentResponse cancel(Long id) {
+		Appointment appointment = appointmentRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Appointment not found."));
+		LocalDateTime now = LocalDateTime.now(clock);
+
+		appointment.cancel(now);
+		if (penaltyPolicy.isLateCancellation(appointment.getDateTime(), now)) {
+			penaltyRepository.save(new Penalty(appointment.getPatient(), appointment, now));
+		}
+		// The appointment is managed by the transaction: its new status is flushed on commit.
+		return appointmentMapper.toResponse(appointment);
 	}
 
 	/** RN-06 (past date-time, slot start) and RN-01 (working hours). */

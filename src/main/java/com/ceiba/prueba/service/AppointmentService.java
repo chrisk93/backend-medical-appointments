@@ -14,4 +14,12 @@ public interface AppointmentService {
 	 */
 	AppointmentResponse schedule(AppointmentRequest request);
 
+	/**
+	 * Cancels a scheduled appointment (RF-05) and registers a penalty if it is a late cancellation (RN-05).
+	 *
+	 * @throws com.ceiba.prueba.exception.ResourceNotFoundException if the appointment does not exist
+	 * @throws com.ceiba.prueba.exception.ConflictException if the appointment is not scheduled
+	 */
+	AppointmentResponse cancel(Long id);
+
 }

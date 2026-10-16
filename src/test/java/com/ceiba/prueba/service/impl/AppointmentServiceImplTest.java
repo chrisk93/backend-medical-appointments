@@ -28,6 +28,7 @@ import com.ceiba.prueba.domain.model.Appointment;
 import com.ceiba.prueba.domain.model.AppointmentStatus;
 import com.ceiba.prueba.domain.model.Doctor;
 import com.ceiba.prueba.domain.model.Patient;
+import com.ceiba.prueba.domain.model.Penalty;
 import com.ceiba.prueba.domain.policy.PenaltyPolicy;
 import com.ceiba.prueba.domain.policy.WorkingHoursPolicy;
 import com.ceiba.prueba.dto.request.AppointmentRequest;
@@ -294,6 +295,88 @@ class AppointmentServiceImplTest {
 					AppointmentStatus.SCHEDULED);
 			verify(appointmentRepository).existsByPatientIdAndDateTimeAndStatus(PATIENT_ID, TUESDAY_10_00,
 					AppointmentStatus.SCHEDULED);
+		}
+
+	}
+
+	@Nested
+	class Cancel {
+
+		private static final Long APPOINTMENT_ID = 10L;
+
+		@Test
+		void cancel_3HoursBefore_cancelsWithoutPenalty() {
+			Appointment appointment = givenScheduledAppointment(NOW.plusHours(3));
+
+			AppointmentResponse response = service.cancel(APPOINTMENT_ID);
+
+			assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+			assertThat(response.cancelledAt()).isEqualTo(NOW);
+			assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+			verify(penaltyRepository, never()).save(any());
+		}
+
+		@Test
+		void cancel_exactly2HoursBefore_cancelsWithoutPenalty() {
+			givenScheduledAppointment(NOW.plusHours(2));
+
+			service.cancel(APPOINTMENT_ID);
+
+			verify(penaltyRepository, never()).save(any());
+		}
+
+		@Test
+		void cancel_1HourBefore_registersPenaltyForPatient() {
+			Appointment appointment = givenScheduledAppointment(NOW.plusHours(1));
+
+			service.cancel(APPOINTMENT_ID);
+
+			ArgumentCaptor<Penalty> captor = ArgumentCaptor.forClass(Penalty.class);
+			verify(penaltyRepository).save(captor.capture());
+			assertThat(captor.getValue().getPatient()).isSameAs(patient);
+			assertThat(captor.getValue().getAppointment()).isSameAs(appointment);
+			assertThat(captor.getValue().getCreatedAt()).isEqualTo(NOW);
+		}
+
+		@Test
+		void cancel_appointmentAlreadyPassed_registersPenalty() {
+			Appointment appointment = givenScheduledAppointment(NOW.minusHours(2));
+
+			AppointmentResponse response = service.cancel(APPOINTMENT_ID);
+
+			assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+			verify(penaltyRepository).save(any(Penalty.class));
+			assertThat(appointment.getCancelledAt()).isEqualTo(NOW);
+		}
+
+		@Test
+		void cancel_alreadyCancelled_throwsConflictWithoutPenalty() {
+			Appointment appointment = givenScheduledAppointment(NOW.plusHours(1));
+			LocalDateTime firstCancellation = NOW.minusDays(1);
+			appointment.cancel(firstCancellation);
+
+			assertThatThrownBy(() -> service.cancel(APPOINTMENT_ID))
+					.isInstanceOf(ConflictException.class)
+					.hasMessage("Only scheduled appointments can be cancelled.");
+			assertThat(appointment.getCancelledAt()).isEqualTo(firstCancellation);
+			verify(penaltyRepository, never()).save(any());
+		}
+
+		@Test
+		void cancel_appointmentNotFound_throwsNotFound() {
+			when(appointmentRepository.findById(APPOINTMENT_ID)).thenReturn(Optional.empty());
+
+			assertThatThrownBy(() -> service.cancel(APPOINTMENT_ID))
+					.isInstanceOf(ResourceNotFoundException.class)
+					.hasMessage("Appointment not found.");
+			verify(penaltyRepository, never()).save(any());
+		}
+
+		private Appointment givenScheduledAppointment(LocalDateTime dateTime) {
+			Appointment appointment = new Appointment(patient, doctor, dateTime);
+			ReflectionTestUtils.setField(appointment, "id", APPOINTMENT_ID);
+			when(appointmentRepository.findById(APPOINTMENT_ID)).thenReturn(Optional.of(appointment));
+			return appointment;
 		}
 
 	}
