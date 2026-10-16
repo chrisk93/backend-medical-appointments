@@ -1,5 +1,8 @@
 package com.ceiba.prueba.service;
 
+import java.util.List;
+
+import com.ceiba.prueba.dto.request.AppointmentFilter;
 import com.ceiba.prueba.dto.request.AppointmentRequest;
 import com.ceiba.prueba.dto.response.AppointmentResponse;
 
@@ -21,5 +24,12 @@ public interface AppointmentService {
 	 * @throws com.ceiba.prueba.exception.ConflictException if the appointment is not scheduled
 	 */
 	AppointmentResponse cancel(Long id);
+
+	/**
+	 * Lists appointments matching the optional filters (RF-06), ordered by date-time ascending.
+	 *
+	 * @throws com.ceiba.prueba.exception.BusinessRuleException if {@code startDate} is after {@code endDate}
+	 */
+	List<AppointmentResponse> search(AppointmentFilter filter);
 
 }

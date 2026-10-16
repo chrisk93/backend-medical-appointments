@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.ceiba.prueba.domain.model.Appointment;
@@ -31,6 +34,7 @@ import com.ceiba.prueba.domain.model.Patient;
 import com.ceiba.prueba.domain.model.Penalty;
 import com.ceiba.prueba.domain.policy.PenaltyPolicy;
 import com.ceiba.prueba.domain.policy.WorkingHoursPolicy;
+import com.ceiba.prueba.dto.request.AppointmentFilter;
 import com.ceiba.prueba.dto.request.AppointmentRequest;
 import com.ceiba.prueba.dto.response.AppointmentResponse;
 import com.ceiba.prueba.exception.BusinessRuleException;
@@ -376,6 +380,90 @@ class AppointmentServiceImplTest {
 			Appointment appointment = new Appointment(patient, doctor, dateTime);
 			ReflectionTestUtils.setField(appointment, "id", APPOINTMENT_ID);
 			when(appointmentRepository.findById(APPOINTMENT_ID)).thenReturn(Optional.of(appointment));
+			return appointment;
+		}
+
+	}
+
+	@Nested
+	class Search {
+
+		private static final LocalDate MONDAY = LocalDate.of(2026, 10, 19);
+		private static final LocalDate TUESDAY = LocalDate.of(2026, 10, 20);
+
+		@Test
+		void search_returnsMappedAppointmentsInRepositoryOrder() {
+			// Given
+			Appointment first = appointment(1L, MONDAY.atTime(8, 0));
+			Appointment second = appointment(2L, TUESDAY.atTime(9, 0));
+			second.cancel(NOW);
+			givenFindAllReturns(List.of(first, second));
+
+			// When
+			List<AppointmentResponse> result = service.search(
+					new AppointmentFilter(DOCTOR_ID, PATIENT_ID, null, MONDAY, TUESDAY));
+
+			// Then
+			assertThat(result).containsExactly(
+					new AppointmentResponse(1L, PATIENT_ID, DOCTOR_ID, MONDAY.atTime(8, 0),
+							AppointmentStatus.SCHEDULED, null),
+					new AppointmentResponse(2L, PATIENT_ID, DOCTOR_ID, TUESDAY.atTime(9, 0),
+							AppointmentStatus.CANCELLED, NOW));
+		}
+
+		@Test
+		void search_ordersByDateTimeThenIdAscending() {
+			givenFindAllReturns(List.of());
+
+			service.search(new AppointmentFilter(null, null, null, null, null));
+
+			ArgumentCaptor<Sort> sort = ArgumentCaptor.forClass(Sort.class);
+			verify(appointmentRepository).findAll(anySpecification(), sort.capture());
+			assertThat(sort.getValue()).isEqualTo(Sort.by(Sort.Direction.ASC, "dateTime", "id"));
+		}
+
+		@Test
+		void search_noMatches_returnsEmptyList() {
+			givenFindAllReturns(List.of());
+
+			assertThat(service.search(new AppointmentFilter(null, null, AppointmentStatus.CANCELLED, null, null)))
+					.isEmpty();
+		}
+
+		@Test
+		void search_sameStartAndEndDate_isAllowed() {
+			givenFindAllReturns(List.of());
+
+			assertThat(service.search(new AppointmentFilter(null, null, null, MONDAY, MONDAY))).isEmpty();
+		}
+
+		@Test
+		void search_onlyOneDateBound_isAllowed() {
+			givenFindAllReturns(List.of());
+
+			assertThat(service.search(new AppointmentFilter(null, null, null, TUESDAY, null))).isEmpty();
+			assertThat(service.search(new AppointmentFilter(null, null, null, null, MONDAY))).isEmpty();
+		}
+
+		@Test
+		void search_startDateAfterEndDate_throwsBusinessRuleWithoutQuerying() {
+			assertThatThrownBy(() -> service.search(new AppointmentFilter(null, null, null, TUESDAY, MONDAY)))
+					.isInstanceOf(BusinessRuleException.class)
+					.hasMessage("startDate must be on or before endDate.");
+			verify(appointmentRepository, never()).findAll(anySpecification(), any(Sort.class));
+		}
+
+		private static Specification<Appointment> anySpecification() {
+			return any();
+		}
+
+		private void givenFindAllReturns(List<Appointment> appointments) {
+			when(appointmentRepository.findAll(anySpecification(), any(Sort.class))).thenReturn(appointments);
+		}
+
+		private Appointment appointment(Long id, LocalDateTime dateTime) {
+			Appointment appointment = new Appointment(patient, doctor, dateTime);
+			ReflectionTestUtils.setField(appointment, "id", id);
 			return appointment;
 		}
 

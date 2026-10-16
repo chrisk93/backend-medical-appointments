@@ -22,6 +22,13 @@ public final class AppointmentSpecifications {
 	private AppointmentSpecifications() {
 	}
 
+	/** All RF-06 filters combined; {@code null} values are ignored. */
+	public static Specification<Appointment> matching(Long doctorId, Long patientId, AppointmentStatus status,
+			LocalDate startDate, LocalDate endDate) {
+		return Specification.allOf(hasDoctorId(doctorId), hasPatientId(patientId), hasStatus(status),
+				onOrAfter(startDate), onOrBefore(endDate));
+	}
+
 	public static Specification<Appointment> hasDoctorId(Long doctorId) {
 		if (doctorId == null) {
 			return Specification.unrestricted();

@@ -3,7 +3,9 @@ package com.ceiba.prueba.service.impl;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,7 @@ import com.ceiba.prueba.domain.model.Patient;
 import com.ceiba.prueba.domain.model.Penalty;
 import com.ceiba.prueba.domain.policy.PenaltyPolicy;
 import com.ceiba.prueba.domain.policy.WorkingHoursPolicy;
+import com.ceiba.prueba.dto.request.AppointmentFilter;
 import com.ceiba.prueba.dto.request.AppointmentRequest;
 import com.ceiba.prueba.dto.response.AppointmentResponse;
 import com.ceiba.prueba.exception.BusinessRuleException;
@@ -24,6 +27,7 @@ import com.ceiba.prueba.repository.AppointmentRepository;
 import com.ceiba.prueba.repository.DoctorRepository;
 import com.ceiba.prueba.repository.PatientRepository;
 import com.ceiba.prueba.repository.PenaltyRepository;
+import com.ceiba.prueba.repository.specification.AppointmentSpecifications;
 import com.ceiba.prueba.service.AppointmentService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +35,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
+
+	/** Chronological order; the id breaks ties between appointments of different doctors at the same time. */
+	private static final Sort SEARCH_ORDER = Sort.by(Sort.Direction.ASC, "dateTime", "id");
 
 	private final AppointmentRepository appointmentRepository;
 
@@ -92,6 +99,19 @@ public class AppointmentServiceImpl implements AppointmentService {
 		}
 		// The appointment is managed by the transaction: its new status is flushed on commit.
 		return appointmentMapper.toResponse(appointment);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<AppointmentResponse> search(AppointmentFilter filter) {
+		if (filter.startDate() != null && filter.endDate() != null && filter.startDate().isAfter(filter.endDate())) {
+			throw new BusinessRuleException("startDate must be on or before endDate.");
+		}
+		return appointmentRepository.findAll(AppointmentSpecifications.matching(filter.doctorId(),
+				filter.patientId(), filter.status(), filter.startDate(), filter.endDate()), SEARCH_ORDER)
+				.stream()
+				.map(appointmentMapper::toResponse)
+				.toList();
 	}
 
 	/** RN-06 (past date-time, slot start) and RN-01 (working hours). */

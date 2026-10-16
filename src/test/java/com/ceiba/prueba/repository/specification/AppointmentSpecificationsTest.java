@@ -3,6 +3,7 @@ package com.ceiba.prueba.repository.specification;
 import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.hasDoctorId;
 import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.hasPatientId;
 import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.hasStatus;
+import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.matching;
 import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.onOrAfter;
 import static com.ceiba.prueba.repository.specification.AppointmentSpecifications.onOrBefore;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,6 +121,27 @@ class AppointmentSpecificationsTest {
 	void filtersWithNoMatch_returnsEmpty() {
 		assertThat(find(Specification.allOf(hasDoctorId(1L), hasStatus(AppointmentStatus.SCHEDULED),
 				onOrAfter(TUESDAY)))).isEmpty();
+	}
+
+	@Test
+	void matching_allNull_returnsAllAppointments() {
+		assertThat(find(matching(null, null, null, null, null)))
+				.containsExactlyInAnyOrder(anaMondayDoctor1, anaTuesdayLastSlotDoctor2, luisMondayDoctor1Cancelled,
+						luisWednesdayDoctor2);
+	}
+
+	@Test
+	void matching_allValues_appliesEveryFilter() {
+		Long anaId = anaMondayDoctor1.getPatient().getId();
+
+		assertThat(find(matching(2L, anaId, AppointmentStatus.SCHEDULED, MONDAY, TUESDAY)))
+				.containsExactly(anaTuesdayLastSlotDoctor2);
+	}
+
+	@Test
+	void matching_someValues_ignoresNullFilters() {
+		assertThat(find(matching(1L, null, AppointmentStatus.SCHEDULED, null, null)))
+				.containsExactly(anaMondayDoctor1);
 	}
 
 	private List<Appointment> find(Specification<Appointment> specification) {
