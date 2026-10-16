@@ -1,13 +1,18 @@
 package com.ceiba.prueba.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +23,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.ceiba.prueba.dto.request.DoctorRequest;
 import com.ceiba.prueba.dto.response.DoctorResponse;
+import com.ceiba.prueba.dto.response.TimeSlotResponse;
+import com.ceiba.prueba.exception.BusinessRuleException;
+import com.ceiba.prueba.exception.ResourceNotFoundException;
+import com.ceiba.prueba.service.AvailabilityService;
 import com.ceiba.prueba.service.DoctorService;
 
 @WebMvcTest(DoctorController.class)
@@ -30,6 +39,9 @@ class DoctorControllerTest {
 
 	@MockitoBean
 	private DoctorService doctorService;
+
+	@MockitoBean
+	private AvailabilityService availabilityService;
 
 	@Test
 	void create_validRequest_returns201WithDoctor() throws Exception {
@@ -116,6 +128,103 @@ class DoctorControllerTest {
 				.andExpect(jsonPath("$.status").value(400));
 
 		verifyNoInteractions(doctorService);
+	}
+
+	// --- RF-04: GET /api/doctors/{doctorId}/availability ---
+
+	@Test
+	void getAvailability_validRange_returns200WithSlots() throws Exception {
+		// Given
+		LocalDate monday = LocalDate.of(2026, 10, 26);
+		when(availabilityService.getAvailableSlots(1L, monday, monday)).thenReturn(List.of(
+				new TimeSlotResponse(monday.atTime(8, 0), monday.atTime(8, 30)),
+				new TimeSlotResponse(monday.atTime(8, 30), monday.atTime(9, 0))));
+
+		// When / Then
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability")
+				.param("startDate", "2026-10-26")
+				.param("endDate", "2026-10-26"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$[0].start").value("2026-10-26T08:00:00"))
+				.andExpect(jsonPath("$[0].end").value("2026-10-26T08:30:00"))
+				.andExpect(jsonPath("$[1].start").value("2026-10-26T08:30:00"));
+	}
+
+	@Test
+	void getAvailability_noFreeSlots_returns200WithEmptyList() throws Exception {
+		when(availabilityService.getAvailableSlots(any(), any(), any())).thenReturn(List.of());
+
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability")
+				.param("startDate", "2026-11-01")
+				.param("endDate", "2026-11-01"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(0));
+	}
+
+	@Test
+	void getAvailability_missingStartDate_returns400() throws Exception {
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability").param("endDate", "2026-10-26"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.detail").value(containsString("startDate")));
+
+		verifyNoInteractions(availabilityService);
+	}
+
+	@Test
+	void getAvailability_missingEndDate_returns400() throws Exception {
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability").param("startDate", "2026-10-26"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.detail").value(containsString("endDate")));
+
+		verifyNoInteractions(availabilityService);
+	}
+
+	@Test
+	void getAvailability_dateNotIso8601_returns400() throws Exception {
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability")
+				.param("startDate", "26/10/2026")
+				.param("endDate", "2026-10-26"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+
+		verifyNoInteractions(availabilityService);
+	}
+
+	@Test
+	void getAvailability_nonNumericDoctorId_returns400() throws Exception {
+		mockMvc.perform(get(DOCTORS_URL + "/abc/availability")
+				.param("startDate", "2026-10-26")
+				.param("endDate", "2026-10-26"))
+				.andExpect(status().isBadRequest());
+
+		verifyNoInteractions(availabilityService);
+	}
+
+	@Test
+	void getAvailability_invertedRange_returns400() throws Exception {
+		when(availabilityService.getAvailableSlots(any(), any(), any()))
+				.thenThrow(new BusinessRuleException("startDate must be on or before endDate."));
+
+		mockMvc.perform(get(DOCTORS_URL + "/1/availability")
+				.param("startDate", "2026-10-27")
+				.param("endDate", "2026-10-26"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.detail").value("startDate must be on or before endDate."));
+	}
+
+	@Test
+	void getAvailability_doctorNotFound_returns404() throws Exception {
+		when(availabilityService.getAvailableSlots(any(), any(), any()))
+				.thenThrow(new ResourceNotFoundException("Doctor not found."));
+
+		mockMvc.perform(get(DOCTORS_URL + "/999/availability")
+				.param("startDate", "2026-10-26")
+				.param("endDate", "2026-10-26"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.detail").value("Doctor not found."));
 	}
 
 }
